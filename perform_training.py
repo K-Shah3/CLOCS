@@ -30,6 +30,7 @@ def contrastive_single(phase,inference,dataloaders,model,optimizer,device,weight
     pids_list = []
     batch_num = 0
     batch = 0
+    x = dataloaders['train1']
     for inputs,labels,pids,modality,task_names,indices in tqdm(dataloaders[phase]):
         batch += 1
         """ Send Data to Device """

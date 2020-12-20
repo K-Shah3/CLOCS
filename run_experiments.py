@@ -8,6 +8,7 @@ Created on Sat May 16 23:40:29 2020
 
 #%%
 import numpy as np
+import os
 from prepare_miscellaneous import obtain_information, obtain_saved_weights_name, make_saving_directory_contrastive, modify_dataset_order_for_multi_task_learning, obtain_load_path_dir, determine_classification_setting
 from prepare_network import cnn_network_contrastive, second_cnn_network
 from run_experiment import train_model
@@ -17,7 +18,7 @@ from run_experiment import train_model
 dataset_list = ['physionet','physionet2017','cardiology','ptb','fetal','physionet2016','physionet2020','chapman','chapman_pvc']#,'cipa']
 batch_size_list = [256, 256, 16, 64, 64, 256, 256, 256, 256]#, 512]
 lr_list = [1e-4, 1e-4, 1e-4, 5e-5, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4]#, 1e-4]
-nleads = 12 # 12 | 4
+nleads = 4 # 12 | 4
 if nleads == 12:
     leads_list = [None,None,None,'i','Abdomen 1','i',"['I', 'II', 'III', 'aVL', 'aVR', 'aVF', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6']","['I', 'II', 'III', 'aVR', 'aVL', 'aVF', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6']","['I', 'II', 'III', 'aVR', 'aVL', 'aVF', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6']"] #'II' for one lead, ['II','V1',etc.] for more leads
 elif nleads == 4:
@@ -70,6 +71,9 @@ trials_to_run_dict = {
                 {'downstream_task':'contrastive_ss',
                  'nencoders':1, #this can be changed independently of nviews
                  'nviews':2}, #default method only contains 2 views
+                # {'donwstream_task':'contrastive_msml',
+                #  'nencoders':1,
+                #   'nviews':nleads},
                 'CMSC':
                 {'downstream_task':'contrastive_ms', #determines which dataset version to load
                  'nencoders':1, #this can be changed independently of nviews
@@ -106,21 +110,20 @@ def run_configurations(basepath_to_data,phases,trial_to_load_list,trial_to_run_l
         embedding_dim_list (list): size of embedding for representation
         downstream_dataset_list (list): list of datasets to perform experiments on
     """
-    
+    print("in the function")
     for trial_to_load,trial_to_run in zip(trial_to_load_list,trial_to_run_list):
         for embedding_dim in embedding_dim_list: #embedding dimension to use for pretraining
             for downstream_dataset in downstream_dataset_list: #dataset used for pretraining
                 for second_dataset in second_dataset_list: #dataset used for evaluation down the line
                     for labelled_fraction in labelled_fraction_list:
+                        
                         downstream_task, nencoders, nviews = trials_to_run_dict[trial_to_run].values()
                         input_perturbed, perturbation = trials_to_load_dict[trial_to_load].values()
                         saved_weights = obtain_saved_weights_name(trial_to_run,phases)
-                        
                         """ Information for save_path_dir """
                         original_leads, original_batch_size, original_held_out_lr, original_class_pair, original_modalities, original_fraction = obtain_information(trial_to_load,downstream_dataset,second_dataset,data2leads_dict,data2bs_dict,data2lr_dict,data2classpair_dict)
                         """ Information for actual training --- trial_to_run == trial_to_load when pretraining so they are the same """
                         leads, batch_size, held_out_lr, class_pair, modalities, fraction = obtain_information(trial_to_run,downstream_dataset,second_dataset,data2leads_dict,data2bs_dict,data2lr_dict,data2classpair_dict)
-                        
                         max_epochs = 400 #hard stop for training
                         max_seed = 5
                         seeds = np.arange(max_seed)
@@ -128,7 +131,6 @@ def run_configurations(basepath_to_data,phases,trial_to_load_list,trial_to_run_l
                             save_path_dir, seed = make_saving_directory_contrastive(phases,downstream_dataset,trial_to_load,trial_to_run,seed,max_seed,downstream_task,embedding_dim,original_leads,input_perturbed,perturbation)
                             #if save_path_dir == 'do not train':
                             #    continue
-                            
                             if trial_to_run in ['Linear','Fine-Tuning','Random']:  
                                 original_downstream_dataset,modalities,leads,class_pair,fraction = modify_dataset_order_for_multi_task_learning(second_dataset,modalities,leads,class_pair,fraction)
                             else:
@@ -142,7 +144,9 @@ def run_configurations(basepath_to_data,phases,trial_to_load_list,trial_to_run_l
                             train_model(basepath_to_data,cnn_network_contrastive,second_cnn_network,classification,load_path_dir,save_path_dir,seed,batch_size,held_out_lr,fraction,modalities,leads,saved_weights,phases,original_downstream_dataset,downstream_task,class_pair,input_perturbed,perturbation,trial_to_load=trial_to_load,trial_to_run=trial_to_run,nencoders=nencoders,embedding_dim=embedding_dim,nviews=nviews,labelled_fraction=labelled_fraction,num_epochs=max_epochs)
 
 #%%
-basepath_to_data = '/mnt/SecondaryHDD'
+# basepath_to_data = '/mnt/SecondaryHDD'
+chapman_file_path = os.path.dirname(os.getcwd()) + "\\Datasets\\Chapman"
+basepath_to_data =  os.path.dirname(os.getcwd()) + "\\Datasets"
 phases = ['train','val']#['test'] #['train','val'] #['test']
 trial_to_load_list = ['SimCLR','CMSC','CMLC','CMSMLC'] #for loading pretrained weights
 trial_to_run_list =  ['SimCLR','CMSC','CMLC','CMSMLC'] #['Linear','Linear','Linear','Linear'] #['Fine-Tuning','Fine-Tuning','Fine-Tuning','Fine-Tuning'] #['Linear','Linear','Linear','Linear'] #['Fine-Tuning','Fine-Tuning','Fine-Tuning','Fine-Tuning'] #['Fine-Tuning','Fine-Tuning','Fine-Tuning','Fine-Tuning']  #['Linear','Linear','Linear','Linear']  #['Random']#,'Fine-Tuning','Fine-Tuning','Fine-Tuning']#['SimCLR','CMSC','CMLC','CMSMLC'] #current trial to run and perform training # Fine-Tuning | Same as trial_to_load

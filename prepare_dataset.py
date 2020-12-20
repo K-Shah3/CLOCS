@@ -131,8 +131,8 @@ class my_dataset_contrastive(Dataset):
     def load_raw_inputs_and_outputs(self,dataset_name,leads='i'):
         """ Load Arrays Based on dataset_name """
         #basepath = '/home/scro3517/Desktop'
-        basepath = self.basepath_to_data
-        
+        # basepath = self.basepath_to_data
+        basepath = "C:\\Users\\Kevalee Shah\\Documents\\Cambridge\\Part II\\Project\\Datasets"
         if dataset_name == 'bidmc':
             path = os.path.join(basepath,'BIDMC v1')
             extension = 'heartpy_'
@@ -176,7 +176,7 @@ class my_dataset_contrastive(Dataset):
         elif dataset_name == 'chapman':
             #basepath = '/mnt/SecondaryHDD'
             leads = leads
-            path = os.path.join(basepath,'chapman_ecg',self.task,'leads_%s' % leads)
+            path = os.path.join(basepath,'Chapman',self.task,'leads_%s' % leads)
             extension = ''
         elif dataset_name == 'chapman_pvc':
             #basepath = '/mnt/SecondaryHDD'
@@ -188,14 +188,20 @@ class my_dataset_contrastive(Dataset):
             dataset_name = dataset_name + '_' + 'mutually_exclusive_classes'
         
         """ Dict Containing Actual Frames """
-        with open(os.path.join(path,'frames_phases_%s%s.pkl' % (extension,dataset_name)),'rb') as f:
+        with open(os.path.join(path, 'frames_phases_chapman.pkl'), 'rb') as f:
             input_array = pickle.load(f)
+        # with open(os.path.join(path,'frames_phases_%s%s.pkl' % (extension,dataset_name)),'rb') as f:
+        #     input_array = pickle.load(f)
         """ Dict Containing Actual Labels """
-        with open(os.path.join(path,'labels_phases_%s%s.pkl' % (extension,dataset_name)),'rb') as g:
+        with open(os.path.join(path,'labels_phases_chapman.pkl'), 'rb') as g:
             output_array = pickle.load(g)
+        # with open(os.path.join(path,'labels_phases_%s%s.pkl' % (extension,dataset_name)),'rb') as g:
+        #     output_array = pickle.load(g)
         """ Dict Containing Patient Numbers """
-        with open(os.path.join(path,'pid_phases_%s%s.pkl' % (extension,dataset_name)),'rb') as h:
+        with open(os.path.join(path,'pid_phases_chapman.pkl'), 'rb') as h:
             pid_array = pickle.load(h) #needed for CPPC (ours)
+        # with open(os.path.join(path,'pid_phases_%s%s.pkl' % (extension,dataset_name)),'rb') as h:
+        #     pid_array = pickle.load(h) #needed for CPPC (ours)
         
         return input_array,output_array,pid_array
 
@@ -502,7 +508,8 @@ class my_dataset_contrastive(Dataset):
                     variance_factor = 10*mult_factor
                 elif self.dataset_name in ['physionet','physionet2017']:
                     variance_factor = 100*mult_factor 
-                gauss_noise = np.random.normal(0,variance_factor,size=(2500))
+                # gauss_noise = np.random.normal(0,variance_factor,size=(2500))
+                gauss_noise = np.random.normal(0,variance_factor,size=(2500,4))
                 frame = frame + gauss_noise
             
             if 'FlipAlongY' in self.perturbation:
@@ -531,6 +538,8 @@ class my_dataset_contrastive(Dataset):
         if input_frame.dtype != float:
             input_frame = np.array(input_frame,dtype=float)
         
+        # to make the dimensions work
+        input_frame = input_frame.T
         nsamples = input_frame.shape[0] #(5000,) for my approach, #2500 for CMC approach (OURS1)
         
         if self.trial == 'CMSC':
@@ -577,7 +586,21 @@ class my_dataset_contrastive(Dataset):
                     fcount += 1
                     
         elif self.trial in ['CMC','SimCLR']:
-            frame_views = torch.empty(1,nsamples,self.nviews)
+            # frame_views = torch.empty(1,nsamples,self.nviews)
+            # for n in range(self.nviews):
+            #     """ Obtain Differing 'Views' of Same Instance by Perturbing Input Frame """
+            #     frame = self.obtain_perturbed_frame(input_frame)
+            #     """ Normalize Data Frame """
+            #     frame = self.normalize_frame(frame)
+            #     frame = torch.tensor(frame,dtype=torch.float)
+            #     label = torch.tensor(label,dtype=torch.float)
+            #     """ Frame Input Has 1 Channel """
+            #     frame = frame.unsqueeze(0)
+            #     """ Populate Frame Views """
+            #     frame_views[0,:,n] = frame
+
+
+            frame_views = torch.empty(self.nviews,nsamples,4)
             for n in range(self.nviews):
                 """ Obtain Differing 'Views' of Same Instance by Perturbing Input Frame """
                 frame = self.obtain_perturbed_frame(input_frame)
@@ -588,7 +611,7 @@ class my_dataset_contrastive(Dataset):
                 """ Frame Input Has 1 Channel """
                 frame = frame.unsqueeze(0)
                 """ Populate Frame Views """
-                frame_views[0,:,n] = frame
+                frame_views[n,:,:] = frame
                 
         elif self.trial in ['Linear','Fine-Tuning','Random']:
             frame = self.normalize_frame(input_frame)
